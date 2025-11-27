@@ -95,7 +95,7 @@ Resources:
               Configuration:
                 ClusterName: !Ref ECSClusterName
                 ServiceName: !Ref ECSServiceName
-                FileName: imagedefinitions.json
+               
 
 Outputs:
   PipelineName:
