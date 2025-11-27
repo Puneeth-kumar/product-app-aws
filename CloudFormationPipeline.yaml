@@ -1,0 +1,103 @@
+
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'AWS CodePipeline with GitHub source, CodeBuild, ECR, and ECS deployment'
+
+Parameters:
+  GitHubOwner:
+    Type: String
+    Description: Puneeth-kumar
+  GitHubRepo:
+    Type: String
+    Description: product-app-aws
+  GitHubBranch:
+    Type: String
+    Default: main
+    Description: main
+  GitHubOAuthToken:
+    Type: String
+    NoEcho: true
+    Description: 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
+  ECRRepositoryName:
+    Type: String
+    Description: product_registry
+  ECSClusterName:
+    Type: String
+    Description: prouduct_cluster
+  ECSServiceName:
+    Type: String
+    Description: Product-task-service-4a1r9eni
+  CodeBuildProject:
+    Type: String
+    Description: Product_CodeBuild
+
+Resources:
+  CodePipelineRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codepipeline.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AWSCodePipelineFullAccess
+
+
+  Pipeline:
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      RoleArn: !GetAtt CodePipelineRole.Arn
+      ArtifactStore:
+        Type: S3
+        Location: !Sub '${AWS::StackName}-artifact-store'
+      Stages:
+        - Name: Source
+          Actions:
+            - Name: GitHubSource
+              ActionTypeId:
+                Category: Source
+                Owner: ThirdParty
+                Provider: GitHub
+                Version: '1'
+              OutputArtifacts:
+                - Name: SourceOutput
+              Configuration:
+                Owner: !Ref GitHubOwner
+                Repo: !Ref GitHubRepo
+                Branch: !Ref GitHubBranch
+                OAuthToken: !Ref GitHubOAuthToken
+        - Name: Build
+          Actions:
+            - Name: CodeBuild
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Provider: CodeBuild
+                Version: '1'
+              InputArtifacts:
+                - Name: SourceOutput
+              OutputArtifacts:
+                - Name: BuildOutput
+              Configuration:
+                ProjectName: !Ref CodeBuildProject
+        - Name: Deploy
+          Actions:
+            - Name: ECSDeploy
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Provider: ECS
+                Version: '1'
+              InputArtifacts:
+                - Name: BuildOutput
+              Configuration:
+                ClusterName: !Ref ECSClusterName
+                ServiceName: !Ref ECSServiceName
+                FileName: imagedefinitions.json
+
+Outputs:
+  PipelineName:
+    Description: Name of the created pipeline
+    Value: !Ref Pipeline
